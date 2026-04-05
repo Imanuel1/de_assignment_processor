@@ -1,0 +1,87 @@
+services:
+  # Node.js Service
+  # content_worker:
+  #   container_name: content_worker
+  #   build: .
+  #   command: uv run worker/content.py
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "ps aux | grep 'python worker/content.py' | grep -v grep || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #   environment:
+  #     POSTGRES_HOST: postgres
+  #     POSTGRES_USER: user
+  #     POSTGRES_PASSWORD: password
+  #     POSTGRES_DB: quick_deck
+  #     POSTGRES_PORT: 5432
+  #     RABBITMQ_HOST: rabbitmq
+  #     RABBITMQ_PORT: 5672
+  #     RABBITMQ_USER: guest
+  #     RABBITMQ_PASSWORD: guest
+  #   volumes:
+  #     - .:/app
+  #   depends_on:
+  #     - postgres
+  #     - rabbitmq
+  #   networks:
+  #     - app-network
+  #   profiles:
+  #     - worker
+  # Redis Service
+  # redis:
+  #   # container_name: redis
+  #   image: "redis/redis-stack:edge"
+  #   # restart: always
+  #   ports:
+  #     - 6379:6379
+  #     - 8001:8001
+  #   command: ["redis-server", "--bind", "redis", "--port", "6379"]
+  #   # command: ["redis-server", "--notify-keyspace-events", "Ksg"]
+  #   environment:
+  #     REDIS_ARGS: "--notify-keyspace-events Ksg"
+  #   deploy:
+  #     replicas: 1
+  #     restart_policy:
+  #       condition: on-failure
+    # networks:
+    #   - app-network # Attach Redis to the shared network
+  #RAbbitMQ service
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3-management
+    healthcheck:
+      test: "rabbitmqctl node_health_check"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_USER: user
+      RABBITMQ_PASS: 123456
+    networks:
+      - app-network
+  # postgres Service
+  postgres:
+    container_name: postgres
+    image: postgres:17
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: jobs
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/:/docker-entrypoint-initdb.d/
+    ports:
+      - "5433:5432"
+    networks:
+      - app-network
+volumes:
+  postgres_data:
+networks:
+  app-network:
+    external: true # Make the network available to other Docker Compose files
