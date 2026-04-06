@@ -7,15 +7,21 @@ import logging
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
 
-from apps.api.pg.init import Base, engine, init_db
+from apps.api.pg.init import init_db
+from apps.api.pg.model import JobTable
+from apps.api.pg.utils import insert_if_not_exists
+from apps.api.rabbitMq.init import init_rabbitmq
 from apps.api.rabbitMq.message import publish_job_to_rabbitmq
+from apps.api.redis.init import init_redis
 from apps.api.utils.validate import validate_raw_input
 
 logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logging.info("Starting up...")
-    Base.metadata.create_all(bind=engine)
+    await init_rabbitmq(app)
+    init_db()
+    init_redis()
     yield
     logging.info("Shutting down...")
 
@@ -32,9 +38,7 @@ async def create_job(raw_input: dict, db: Session = Depends(init_db)):
     logging.info("Creating job...")
 
     #TODO: save job to db
-    db.add(validated_input)
-    db.commit()
-    db.refresh(validated_input)
+    insert_if_not_exists(db, JobTable, validated_input, unique_fields=["idempotency_key"])
 
     #TODO: publish job to RabbitMQ
     await publish_job_to_rabbitmq(app, validated_input, priority=1)

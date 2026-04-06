@@ -1,7 +1,6 @@
 services:
-  # Node.js Service
-  # content_worker:
-  #   container_name: content_worker
+  # api_service:
+  #   container_name: api_service
   #   build: .
   #   command: uv run worker/content.py
   #   healthcheck:
@@ -19,6 +18,10 @@ services:
   #     RABBITMQ_PORT: 5672
   #     RABBITMQ_USER: guest
   #     RABBITMQ_PASSWORD: guest
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #     REDIS_USER: default
+  #     REDIS_PASSWORD: mypassword
   #   volumes:
   #     - .:/app
   #   depends_on:
@@ -29,23 +32,23 @@ services:
   #   profiles:
   #     - worker
   # Redis Service
-  # redis:
-  #   # container_name: redis
-  #   image: "redis/redis-stack:edge"
-  #   # restart: always
-  #   ports:
-  #     - 6379:6379
-  #     - 8001:8001
-  #   command: ["redis-server", "--bind", "redis", "--port", "6379"]
-  #   # command: ["redis-server", "--notify-keyspace-events", "Ksg"]
-  #   environment:
-  #     REDIS_ARGS: "--notify-keyspace-events Ksg"
-  #   deploy:
-  #     replicas: 1
-  #     restart_policy:
-  #       condition: on-failure
-    # networks:
-    #   - app-network # Attach Redis to the shared network
+  redis:
+    # container_name: redis
+    image: "redis/redis-stack:edge"
+    # restart: always
+    ports:
+      - 6379:6379
+      - 8001:8001
+    # command: ["redis-server", "--bind", "0.0.0.0", "--port", "6379"]
+    # command: ["redis-server", "--notify-keyspace-events", "Ksg"]
+    environment:
+      REDIS_ARGS: "--bind 0.0.0.0 --notify-keyspace-events Ksg --requirepass mypassword"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    networks:
+      - app-network # Attach Redis to the shared network
   #RAbbitMQ service
   rabbitmq:
     container_name: rabbitmq
