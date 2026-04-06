@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from apps.api.schemas.jobRequest import JobRequest
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def validate_raw_input(raw_input: dict):

@@ -16,7 +16,7 @@ class JobTable(Base):
     payload = Column(JSONB, nullable=False)
     priority = Column(Integer, default=1)
     scheduled_time = Column(DateTime, nullable=True)
-    idempotency_key = Column(String, nullable=False, unique=True)
+    idempotency_key = Column(String, nullable=False)
     status= Column(String, default=JobStatus.PENDING.value)
     created_at = Column(DateTime, nullable=False, default=datetime.now())
     started_at = Column(DateTime, nullable=True)

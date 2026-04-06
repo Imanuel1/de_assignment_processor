@@ -6,6 +6,7 @@ import sys
 
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -22,10 +23,7 @@ class Config(BaseSettings):
     RABBITMQ_HOST: str = "localhost"
     RABBITMQ_PORT: int = 5672
     RABBITMQ_QUEUE_PRIORITY: int = 10
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    REDIS_USER: str = "default"
-    REDIS_PASSWORD: str = "mypassword"
+    RABBITMQ_MAX_RETRIES: int = 5
 
 
 @lru_cache()

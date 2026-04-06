@@ -1,36 +1,79 @@
 services:
-  # api_service:
-  #   container_name: api_service
-  #   build: .
-  #   command: uv run worker/content.py
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "ps aux | grep 'python worker/content.py' | grep -v grep || exit 1"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 5
-  #   environment:
-  #     POSTGRES_HOST: postgres
-  #     POSTGRES_USER: user
-  #     POSTGRES_PASSWORD: password
-  #     POSTGRES_DB: quick_deck
-  #     POSTGRES_PORT: 5432
-  #     RABBITMQ_HOST: rabbitmq
-  #     RABBITMQ_PORT: 5672
-  #     RABBITMQ_USER: guest
-  #     RABBITMQ_PASSWORD: guest
-  #     REDIS_HOST: redis
-  #     REDIS_PORT: 6379
-  #     REDIS_USER: default
-  #     REDIS_PASSWORD: mypassword
-  #   volumes:
-  #     - .:/app
-  #   depends_on:
-  #     - postgres
-  #     - rabbitmq
-  #   networks:
-  #     - app-network
-  #   profiles:
-  #     - worker
+  api_service:
+    container_name: api_service
+    ports:
+      - "8081:8080"
+    build: 
+      context: .
+      dockerfile: ./apps/api/Dockerfile
+    command: sh -c "uvicorn apps.api.main:app --host 0.0.0.0 --port 8080"
+    # command: uv run worker/content.py
+    # healthcheck:
+    #   test: ["CMD-SHELL", "ps aux | grep 'python worker/content.py' | grep -v grep || exit 1"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 5
+    environment:
+      PYTHONUNBUFFERED: "1"
+      PYTHONPATH: /app
+      DB_HOST: postgres
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: jobs
+      DB_PORT: 5432
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USER: default
+      REDIS_PASSWORD: mypassword
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app-network
+  processor_service:
+    container_name: processor_service
+    ports:
+      - "8000:8000"
+    build:
+      context: .
+      dockerfile: ./apps/processor/Dockerfile
+    command: sh -c "uvicorn apps.processor.main:app --host 0.0.0.0 --port 8000"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      PYTHONPATH: /app
+      DB_HOST: postgres
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: jobs
+      DB_PORT: 5432
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+    volumes:
+      - .:/app
+    deploy:
+      replicas: 3
+    depends_on:
+      postgres:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app-network
+
   # Redis Service
   redis:
     # container_name: redis
@@ -54,7 +97,11 @@ services:
     container_name: rabbitmq
     image: rabbitmq:3-management
     healthcheck:
-      test: "rabbitmqctl node_health_check"
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     ports:
       - "5672:5672"
       - "15672:15672"
