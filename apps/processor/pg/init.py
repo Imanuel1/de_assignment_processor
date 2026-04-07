@@ -1,11 +1,10 @@
 
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
-from apps.api.common.constants import get_config
-from apps.api.pg.model import Base
-
-SessionLocal: Session = None
+from sqlalchemy.orm import Session, sessionmaker
+from apps.processor.common.constants import get_config
+from apps.processor.pg.model import Base
+from contextlib import contextmanager
 
 def init_db():
     global SessionLocal
@@ -15,7 +14,10 @@ def init_db():
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
 
+    return engine
 
+
+@contextmanager
 def get_db():
     db = SessionLocal()
     try:

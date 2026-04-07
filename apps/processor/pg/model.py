@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy import Column, DateTime, Float, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import declarative_base
-from apps.api.common.enum import JobStatus
+from apps.processor.common.enum import JobStatus
 
 Base = declarative_base()
 
@@ -16,7 +16,7 @@ class JobTable(Base):
     payload = Column(JSONB, nullable=False)
     priority = Column(Integer, default=1)
     scheduled_time = Column(DateTime, nullable=True)
-    idempotency_key = Column(String, nullable=False)
+    idempotency_key = Column(String, nullable=False, unique=True)
     status= Column(String, default=JobStatus.PENDING.value)
     created_at = Column(DateTime, nullable=False, default=datetime.now())
     started_at = Column(DateTime, nullable=True)

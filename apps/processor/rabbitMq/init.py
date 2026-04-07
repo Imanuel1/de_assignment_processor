@@ -15,7 +15,9 @@ async def init_rabbitmq():
         queue = await channel.declare_queue("jobs", arguments={"x-max-priority": config.RABBITMQ_QUEUE_PRIORITY}, durable=True)
         logger.info("RabbitMQ connection established and queue declared.")
         await consume_jobs(queue)
+        return connection
 
     except Exception as e:
         logger.error(f"Failed to initialize RabbitMQ: {e}")
+        raise e
 

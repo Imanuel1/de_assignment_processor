@@ -41,9 +41,9 @@ services:
     networks:
       - app-network
   processor_service:
-    container_name: processor_service
-    ports:
-      - "8000:8000"
+    # container_name: processor_service
+    # ports:
+    #   - "8000:8000"
     build:
       context: .
       dockerfile: ./apps/processor/Dockerfile

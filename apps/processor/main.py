@@ -12,10 +12,12 @@ logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logging.info("Starting up...")
-    init_db()
-    await init_rabbitmq()
+    db_engine = init_db()
+    rabbit_connection = await init_rabbitmq()
     yield
     logging.info("Shutting down...")
+    db_engine.dispose()
+    await rabbit_connection.close()
 
 app = FastAPI(lifespan=lifespan)
 
