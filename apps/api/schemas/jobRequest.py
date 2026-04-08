@@ -33,9 +33,9 @@ class JobRequest(BaseModel):
 class JobResponse(JobRequest):
     id: UUID
     status: JobStatus
-    created_at: int
-    started_at: Optional[int] = None
-    completed_at: Optional[int] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     attempts: int = 0
     progress: Optional[float] = None
     result: Optional[dict] = None

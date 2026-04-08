@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
 import time
 from http import HTTPStatus
+from typing import Any, List, Optional
 
 from fastapi import FastAPI, HTTPException
 import logging
 
-from fastapi.params import Depends
+from fastapi.params import Depends, Query
 from sqlalchemy.orm import Session
 
 from apps.api.common.enum import JobStatus
@@ -16,6 +17,7 @@ from apps.api.pg.utils import insert_if_not_exists
 from apps.api.rabbitMq.init import init_rabbitmq
 from apps.api.rabbitMq.message import publish_job_to_rabbitmq
 from apps.api.redis.init import init_redis
+from apps.api.schemas.jobRequest import JobResponse
 from apps.api.utils.validate import validate_raw_input
 logging.basicConfig(level=logging.INFO)
 logging.getLogger(__name__)
@@ -64,8 +66,26 @@ def cancel_job(idempotency_key: str, db: Session = Depends(get_db)):
     
     return {"message": "Job cannot be canceled", "status_code": HTTPStatus.BAD_REQUEST}
 
+@app.get("/jobs", response_model=List[JobResponse])
+def list_jobs(
+    status: Optional[JobStatus] = Query(None, description="Filter by job status"),
+    job_type: Optional[str] = Query(None, description="Filter by job type"),
+    limit: int = Query(10, ge=1, le=100, description="Number of jobs to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
+    db: Session = Depends(get_db)
+):
+    query = db.query(JobTable)
 
-@app.get("/health")
+    if status:
+        query = query.filter(JobTable.status == status.value)
+    if job_type:
+        query = query.filter(JobTable.job_type == job_type)
+        
+    jobs = query.order_by(JobTable.created_at.desc()).offset(offset).limit(limit).all()
+
+    return jobs
+
+@app.get("/health", response_model=dict[str, Any])
 async def services_health_check(db: Session = Depends(get_db)):
     health_status = {
         "status": "healthy",

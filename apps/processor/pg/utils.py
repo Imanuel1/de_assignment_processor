@@ -4,6 +4,7 @@ from http import HTTPStatus
 import logging
 
 from fastapi import HTTPException
+from sqlalchemy import insert
 from apps.processor.pg.init import get_db
 from apps.processor.pg.model import JobTable
 

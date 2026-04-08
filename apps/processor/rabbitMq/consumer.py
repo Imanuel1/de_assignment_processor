@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import logging
 
@@ -7,6 +8,7 @@ from apps.processor.common.constants import get_config
 from apps.processor.pg.model import JobTable
 from apps.processor.pg.utils import is_job_canceled, update_table
 from apps.processor.process.mapping import process_job_by_type
+from apps.processor.common.enum import JobStatus
 logging.basicConfig(level=logging.INFO)
 logging.getLogger(__name__)
 CONSTANT_DELAY = 1
@@ -28,12 +30,15 @@ async def process_job(message: aio_pika.IncomingMessage):
                 logging.info(f"Job - {payload.get('idempotency_key')}: Canceled. Skipping...")
                 return
 
+            updated_started_at = {"status": JobStatus.PROCESSING, "started_at": datetime.now()}
+            update_table(JobTable, updated_started_at, payload.get('idempotency_key'))
+
             logging.info(f"Job - {payload.get('idempotency_key')}: Processing...")
             job_type = payload.get("job_type")
             job_data = payload.get("payload")
             result = process_job_by_type(job_type, job_data)
 
-            updated_data = {"status": "completed", "result": result}
+            updated_data = {"status": "completed", "result": result, "completed_at": datetime.now()}
             update_table(JobTable, updated_data, payload.get('idempotency_key'))
             #no need manual ack its handled by the context manager, if no exception is raised, the message will be acked, if an exception is raised, the message will be rejected and requeued based on the retry logic implemented in the except block
             # await message.ack()
@@ -53,6 +58,7 @@ async def process_job(message: aio_pika.IncomingMessage):
                     body=body_as_bytes,
                     routing_key=message.routing_key,
                     properties=aio_pika.Message(
+                        priority=message.priority,
                         body=body_as_bytes,
                         expiration=expiration_time,
                         headers=new_headers,
