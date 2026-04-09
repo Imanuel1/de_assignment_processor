@@ -122,6 +122,7 @@ async def test_priority_ordering(client):
     idedempotency_key_high = f"test_priority_high_{int(time.time())}"
     idedempotency_key_mid_1 = f"test_priority_mid_{int(time.time())}"
     idedempotency_key_mid_2 = f"test_priority_mid_{int(time.time())}"
+    idedempotency_key_mid_3 = f"test_priority_mid_{int(time.time())}"
     idedempotency_key_low = f"test_priority_low_{int(time.time())}"
     base_payload = {
         "job_type": "email", 
@@ -129,15 +130,15 @@ async def test_priority_ordering(client):
             "to": "aba",
             "subject": "test",
             "body": "fffdg r tgtgtg"
-        },
-        "scheduled_time": (datetime.now() + timedelta(seconds=2)).isoformat()
+        }
     }
-    await client.post("/jobs", json={**base_payload, "idempotency_key": idedempotency_key_high, "priority": 3})
     await client.post("/jobs", json={**base_payload, "idempotency_key": idedempotency_key_mid_1, "priority": 2})
     await client.post("/jobs", json={**base_payload, "idempotency_key": idedempotency_key_mid_2, "priority": 2})
+    await client.post("/jobs", json={**base_payload, "idempotency_key": idedempotency_key_mid_3, "priority": 2})
     await client.post("/jobs", json={**base_payload, "idempotency_key": idedempotency_key_low, "priority": 1})
+    await client.post("/jobs", json={**base_payload, "idempotency_key": idedempotency_key_high, "priority": 3})
 
-    await asyncio.sleep(3)
+    await asyncio.sleep(5)
 
     res_high_priority = await client.get(f"/jobs/{idedempotency_key_high}")
     res_low_priority = await client.get(f"/jobs/{idedempotency_key_low}")
