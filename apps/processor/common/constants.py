@@ -23,7 +23,9 @@ class Config(BaseSettings):
     RABBITMQ_HOST: str = "localhost"
     RABBITMQ_PORT: int = 5672
     RABBITMQ_QUEUE_PRIORITY: int = 10
-    RABBITMQ_MAX_RETRIES: int = 5
+    RABBITMQ_MAX_RETRIES: int = 3
+    RABBITMQ_CONSTANT_DELAY: int = 3
+    WEBHOOK_SUCCESS_RATE: int = 80
 
 
 @lru_cache()

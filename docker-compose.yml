@@ -60,6 +60,9 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
+      RABBITMQ_MAX_RETRIES: 3
+      RABBITMQ_CONSTANT_DELAY: ${RABBITMQ_CONSTANT_DELAY:-3}
+      WEBHOOK_SUCCESS_RATE: ${WEBHOOK_SUCCESS_RATE:-80}
     volumes:
       - .:/app
     deploy:
@@ -96,12 +99,17 @@ services:
   rabbitmq:
     container_name: rabbitmq
     image: rabbitmq:3-management
+    build: 
+      context: .
+      dockerfile: ./apps/docker_rabbitmq/Dockerfile
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
+    command: >
+      bash -c "rabbitmq-plugins enable rabbitmq_delayed_message_exchange && rabbitmq-server"
     ports:
       - "5672:5672"
       - "15672:15672"

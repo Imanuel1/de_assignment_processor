@@ -3,10 +3,10 @@ import time
 from http import HTTPStatus
 from typing import Any, List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 import logging
 
-from fastapi.params import Depends, Query
+from fastapi.params import Depends, Path, Query
 from sqlalchemy.orm import Session
 
 from apps.api.common.enum import JobStatus
@@ -32,13 +32,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-@app.get("/")
+@app.get("/", status_code=HTTPStatus.OK)
 async def is_alive():
     logging.info("Health check...")
-    return {"message": "Api service is alive", "status": HTTPStatus.OK}
+    return {"message": "Api service is alive"}
 
 @app.post("/jobs")
-async def create_job(raw_input: dict, db: Session = Depends(get_db)):
+async def create_job(raw_input: dict, response: Response, db: Session = Depends(get_db)):
     validated_input = validate_raw_input(raw_input)
     logging.info("Creating job...")
 
@@ -46,28 +46,44 @@ async def create_job(raw_input: dict, db: Session = Depends(get_db)):
     job_data, is_new_job = await insert_if_not_exists(db, JobTable, job_dict, idempotency_key=job_dict["idempotency_key"])
 
     if not is_new_job:
-        return {"message": "Job already exists", "status_code": HTTPStatus.OK, "data": job_data}
+        response.status_code = HTTPStatus.OK
+        return {"message": "Job already exists", "data": job_data}
 
     await publish_job_to_rabbitmq(app, job_dict, job_dict.get("priority", 1))
+    response.status_code = HTTPStatus.CREATED
+    return {"message": "Job created"}
 
-    return {"message": "Job created", "status_code": HTTPStatus.CREATED}
-
-
-@app.post("/job/{idempotency_key}/cancel")
-def cancel_job(idempotency_key: str, db: Session = Depends(get_db)):
+@app.get("/jobs/{idempotency_key}", status_code=HTTPStatus.OK, response_model=JobResponse)
+def get_job_by_id(response: Response, idempotency_key: str = Path(..., description="Idempotency key of the job to retrieve"), 
+                  db: Session = Depends(get_db)):
     job = db.query(JobTable).filter_by(idempotency_key=idempotency_key).first()
     if not job:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Job not found")
-    
-    if job.status in [JobStatus.PENDING, JobStatus.SCHEDULED]:
-        job.status = JobStatus.CANCELED
-        db.commit()
-        return {"message": "Job canceled successfully", "status_code": HTTPStatus.OK}
-    
-    return {"message": "Job cannot be canceled", "status_code": HTTPStatus.BAD_REQUEST}
+        response.status_code = HTTPStatus.NOT_FOUND
+        return {"message": f"Job with idempotency_key {idempotency_key} not found"}
+        
+    return job
 
-@app.get("/jobs", response_model=List[JobResponse])
+@app.post("/jobs/{idempotency_key}/cancel")
+def cancel_job(response: Response,
+               idempotency_key: str = Path(..., description="Idempotency key of the job to cancel"),
+               db: Session = Depends(get_db)):
+    job = db.query(JobTable).filter_by(idempotency_key=idempotency_key).first()
+    if not job:
+        response.status_code = HTTPStatus.NOT_FOUND
+        return {"message": f"Job with idempotency_key {idempotency_key} not found"}
+    
+    if job.status in [JobStatus.PENDING.value, JobStatus.SCHEDULED.value]:
+        job.status = JobStatus.CANCELED.value
+        db.commit()
+        response.status_code = HTTPStatus.OK
+        return {"message": "Job canceled successfully"}
+    
+    response.status_code = HTTPStatus.BAD_REQUEST
+    return {"message": "Job cannot be canceled"}
+
+@app.get("/jobs", status_code=HTTPStatus.OK, response_model=List[JobResponse])
 def list_jobs(
+    response: Response,
     status: Optional[JobStatus] = Query(None, description="Filter by job status"),
     job_type: Optional[str] = Query(None, description="Filter by job type"),
     limit: int = Query(10, ge=1, le=100, description="Number of jobs to return"),
@@ -83,9 +99,13 @@ def list_jobs(
         
     jobs = query.order_by(JobTable.created_at.desc()).offset(offset).limit(limit).all()
 
+    if not jobs:
+        response.status_code = HTTPStatus.NO_CONTENT
+        return []
+    
     return jobs
 
-@app.get("/health", response_model=dict[str, Any])
+@app.get("/health", status_code=HTTPStatus.OK, response_model=dict[str, Any])
 async def services_health_check(db: Session = Depends(get_db)):
     health_status = {
         "status": "healthy",

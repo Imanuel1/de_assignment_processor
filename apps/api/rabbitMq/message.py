@@ -16,24 +16,26 @@ logger = logging.getLogger(__name__)
 async def publish_job_to_rabbitmq(app: FastAPI, job_data: dict, priority: int = 1):
     try:
         schdule_time = job_data.get("scheduled_time")
+        delay_ms = 0
+
         if schdule_time:
             schdule_time = schdule_time.isoformat()
             job_data["scheduled_time"] = schdule_time
             update_table(app.state.db_session_factory(), JobTable, {"status": JobStatus.SCHEDULED.value}, job_data["idempotency_key"])
+            delay_ms = calculate_delay_ms(schdule_time)
 
         body = json.dumps(job_data)
-        expiration_time = calculate_delay_ms(schdule_time)
-        logger.info(f"Publishing job to RabbitMQ: {body}, priority: {priority}, schedule_time: {schdule_time}")
+        logger.info(f"Publishing job to RabbitMQ: {body}, priority: {priority}, schedule_time: {schdule_time}, delay_ms: {delay_ms}")
 
-        await app.state.channel.default_exchange.publish(
+        await app.state.delayed_exchange.publish(
             aio_pika.Message(
                 body=body.encode(),
                 priority=priority,
-                expiration_time=expiration_time,
-                # expiration=expiration_time,
                 delivery_mode=aio_pika.DeliveryMode.PERSISTENT, 
-                headers={"x-retry-count": 0}),
-            # expiration_time=expiration_time,
+                headers={
+                    "x-retry-count": 0,
+                    "x-delay": delay_ms
+                }),
             routing_key="jobs"
         )
         logger.info("Job published to RabbitMQ.")

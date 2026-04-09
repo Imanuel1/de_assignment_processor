@@ -11,10 +11,15 @@ async def init_rabbitmq():
         connection = await aio_pika.connect_robust(f"amqp://{config.RABBITMQ_USER}:{config.RABBITMQ_PASS}@{config.RABBITMQ_HOST}:{config.RABBITMQ_PORT}/")
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=1)
+        delayed_exchange = await channel.declare_exchange("delayed_jobs_exchange", type="x-delayed-message", passive=True, durable=True,
+            arguments={"x-delayed-type": "direct"} # This tells it how to route once the delay is over
+        )
 
         queue = await channel.declare_queue("jobs", arguments={"x-max-priority": config.RABBITMQ_QUEUE_PRIORITY}, durable=True)
+        await queue.bind(delayed_exchange, routing_key="jobs")
+
         logger.info("RabbitMQ connection established and queue declared.")
-        await consume_jobs(queue)
+        await consume_jobs(queue, channel)
         return connection
 
     except Exception as e:

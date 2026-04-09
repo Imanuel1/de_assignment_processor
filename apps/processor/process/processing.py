@@ -5,6 +5,8 @@ import random
 import time
 from faker import Faker
 
+from apps.processor.common.constants import get_config
+
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger(__name__).info("Initializing email processing...")
@@ -22,12 +24,16 @@ def email_processing(email_data):
 
 
 def webhook_processing(webhook_data):
+    config = get_config()
+    success_rate = getattr(config, "WEBHOOK_SUCCESS_RATE", 80)
+    print(f"success_rate is {success_rate}")
+
     sleep_time = random.randint(1, 2)
     logging.info("Calling webhook...")
     time.sleep(sleep_time)
 
     chance = random.randint(1, 100)
-    if chance <= 80:
+    if chance <= success_rate:
         logging.info("Webhook call successful")
         return {"status": "success"}
     else:
